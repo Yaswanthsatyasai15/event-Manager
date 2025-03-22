@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card mb-2">
+  <h1>Event Management</h1>
+  <form method="POST" action="{{ url_for('view_events') }}" class="mt-2">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+      {{ form.title.label }}
+      {{ form.title(placeholder="Enter event title") }}
+    </div>
+    <div class="form-group">
+      {{ form.description.label }}
+      {{ form.description(placeholder="Event description") }}
+    </div>
+    <div class="form-group">
+      {{ form.date.label }}
+      {{ form.date }}
+    </div>
+    <div class="form-group">
+      {{ form.time.label }}
+      {{ form.time }}
+    </div>
+    <div class="form-group">
+      {{ form.location.label }}
+      {{ form.location(placeholder="Event location") }}
+    </div>
+    <div class="form-group">
+      {{ form.due_date.label }}
+      {{ form.due_date }}
+    </div>
+    <button type="submit">Add Event</button>
+  </form>
+</div>
+
+<div class="event-grid">
+  {% for event in events %}
+  <div class="card event-card" draggable="true" data-id="{{ event.id }}">
+    <div class="event-actions">
+      <a href="{{ url_for('edit_event', id=event.id) }}">✏️</a>
+      <a href="{{ url_for('delete_event', id=event.id) }}">🗑️</a>
+    </div>
+    <h3>{{ event.title }}</h3>
+    {% if event.description %}
+    <p class="text-muted">{{ event.description }}</p>
+    {% endif %}
+    <div class="event-details">
+      <p>📅 {{ event.date.strftime('%b %d, %Y') }}</p>
+      <p>⏰ {{ event.time.strftime('%I:%M %p') }}</p>
+      <p>📍 {{ event.location }}</p>
+      <p class="due-date">
+        {% if event.due_date %}
+          Due: {{ event.due_date.strftime('%b %d, %Y') }}
+          {% if event.due_date < today %}
+            <span class="overdue">(Overdue)</span>
+          {% endif %}
+        {% endif %}
+      </p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const eventCards = document.querySelectorAll('.event-card');
+    let draggedItem = null;
+
+    // Make elements draggable
+    eventCards.forEach(card => {
+        card.addEventListener('dragstart', function() {
+            draggedItem = this;
+            setTimeout(() => {
+                this.style.opacity = '0.5';
+            }, 0);
+        });
+
+        card.addEventListener('dragend', function() {
+            this.style.opacity = '1';
+        });
+
+        card.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+
+        card.addEventListener('dragenter', function(e) {
+            e.preventDefault();
+            if (this !== draggedItem) {
+                this.style.border = '2px dashed #2563eb';
+            }
+        });
+
+        card.addEventListener('dragleave', function() {
+            this.style.border = '';
+        });
+
+        card.addEventListener('drop', function(e) {
+            e.preventDefault();
+            if (this !== draggedItem) {
+                this.style.border = '';
+                
+                // Get the positions of the dragged item and the target
+                const draggedPosition = Array.from(eventCards).indexOf(draggedItem);
+                const targetPosition = Array.from(eventCards).indexOf(this);
+                
+                // Reorder the DOM elements
+                if (draggedPosition < targetPosition) {
+                    this.parentNode.insertBefore(draggedItem, this.nextSibling);
+                } else {
+                    this.parentNode.insertBefore(draggedItem, this);
+                }
+                
+                // Send AJAX request to update the order in the database
+                const draggedId = draggedItem.dataset.id;
+                const newOrder = targetPosition;
+                
+                fetch('/update_order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ id: draggedId, order: newOrder }),
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
